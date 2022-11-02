@@ -10,13 +10,17 @@ from tensorflow import keras
 batch_size = 265
 img_height = 224
 img_width = 224
-data_dir = './dataset_tensorflow/'
+data_dir = './dataset/'
 
 
-train_dataset, validation_dataset = tf.keras.utils.image_dataset_from_directory(
-  data_dir,
-  validation_split=0.2,
-  subset="both",
+train_dataset = tf.keras.utils.image_dataset_from_directory(
+  './dataset/train/',
+  seed=123, # shuffling and transformations 
+  image_size=(img_height, img_width),
+  batch_size=batch_size)
+
+validation_dataset = tf.keras.utils.image_dataset_from_directory(
+  './dataset/test/',
   seed=123, # shuffling and transformations 
   image_size=(img_height, img_width),
   batch_size=batch_size)
@@ -83,12 +87,14 @@ f,ax=plt.subplots(2,1,figsize=(10,10))
 ax[0].plot(model.history.history['loss'],color='b',label='Training Loss')
 ax[0].plot(model.history.history['val_loss'],color='r',label='Validation Loss')
 
+plt.legend()
+
 #Plotting the training accuracy and validation accuracy
 ax[1].plot(model.history.history['accuracy'],color='b',label='Training  Accuracy')
 ax[1].plot(model.history.history['val_accuracy'],color='r',label='Validation Accuracy')
 
 plt.legend()
 
-plt.savefig('./AlexNet')
+plt.savefig('./graphs/AlexNetTF.png')
 
 print('Accuracy Score = ',np.max(history.history['val_accuracy']))
