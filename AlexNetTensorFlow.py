@@ -1,3 +1,9 @@
+"""
+AlexNetTensorflow.py
+Training AlexNet to predict facial emotions from scratch 
+Utilizes Metal Performance Shaders for quick training/test on Apple Silicon
+"""
+
 import os
 
 import matplotlib.pyplot as plt
@@ -11,6 +17,7 @@ batch_size = 265
 img_height = 224
 img_width = 224
 data_dir = './dataset/'
+nepochs = 50
 
 
 train_dataset = tf.keras.utils.image_dataset_from_directory(
@@ -19,7 +26,7 @@ train_dataset = tf.keras.utils.image_dataset_from_directory(
   image_size=(img_height, img_width),
   batch_size=batch_size)
 
-validation_dataset = tf.keras.utils.image_dataset_from_directory(
+test_dataset = tf.keras.utils.image_dataset_from_directory(
   './dataset/test/',
   seed=123, # shuffling and transformations 
   image_size=(img_height, img_width),
@@ -32,7 +39,7 @@ print(train_class_names)
 # Use buffered prefetching to load images from disck w/out I/O bottlenecks
 AUTOTUNE = tf.data.AUTOTUNE
 train_dataset = train_dataset.prefetch(buffer_size=AUTOTUNE)
-validation_dataset = validation_dataset.prefetch(buffer_size=AUTOTUNE)
+test_dataset = test_dataset.prefetch(buffer_size=AUTOTUNE)
 
 
 # AlexNet CNN architecture
@@ -72,29 +79,29 @@ model.summary()
 
 history=model.fit(
     train_dataset,
-    epochs=1, # paper sets 50 epochs
-    validation_data=validation_dataset,
+    epochs=nepochs, # paper sets 50 epochs
+    validation_data=test_dataset,
     validation_freq=1
 )
 
 # ['loss', 'accuracy', 'val_loss', 'val_accuracy']
 model.history.history.keys()
 
-
 f,ax=plt.subplots(2,1,figsize=(10,10)) 
 
-#Assigning the first subplot to graph training loss and validation loss
+#Assigning the first subplot to graph training loss and test loss
 ax[0].plot(model.history.history['loss'],color='b',label='Training Loss')
-ax[0].plot(model.history.history['val_loss'],color='r',label='Validation Loss')
+ax[0].plot(model.history.history['val_loss'],color='r',label='Test Loss')
+ax[0].legend()
 
-plt.legend()
+#Plotting the training accuracy and test accuracy
+ax[1].plot(model.history.history['accuracy'],color='b',label='Training Accuracy')
+ax[1].plot(model.history.history['val_accuracy'],color='r',label='Test Accuracy')
+ax[1].legend()
 
-#Plotting the training accuracy and validation accuracy
-ax[1].plot(model.history.history['accuracy'],color='b',label='Training  Accuracy')
-ax[1].plot(model.history.history['val_accuracy'],color='r',label='Validation Accuracy')
-
-plt.legend()
-
-plt.savefig('./graphs/AlexNetTF.png')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.savefig('./graphs/AlexNet_Scratch.png')
+model.save('./models/AlexNet_Scratch')
 
 print('Accuracy Score = ',np.max(history.history['val_accuracy']))
