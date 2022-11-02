@@ -1,4 +1,12 @@
+"""
+AlexNetPytorch.py
+Transfer learning using AlexNet to predict facial emotions. 
+Utilizes Metal Performance Shaders for quick training/validation on Apple Silicon
+"""
+
 import random
+
+import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -6,7 +14,6 @@ import torch.optim as optim
 from torch.optim import lr_scheduler
 from torchvision import datasets, transforms
 from torchvision.models import AlexNet_Weights
-
 # Check that MPS is available
 if not torch.backends.mps.is_available():
     if not torch.backends.mps.is_built():
@@ -83,5 +90,28 @@ for epoch in range(numEpochs):  # loop over the dataset multiple times
         print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, loss.item()))
         
 
-print('Finished Training of AlexNet')
-torch.save(AlexNet_model.state_dict(), "./models/AlexNet_TL.pt")
+
+'''
+f,ax=plt.subplots(2,1,figsize=(10,10)) 
+
+#Assigning the first subplot to graph training loss and test loss
+ax[0].plot(model.history.history['loss'],color='b',label='Training Loss')
+ax[0].plot(model.history.history['val_loss'],color='r',label='Test Loss')
+ax[0].legend()
+
+#Plotting the training accuracy and test accuracy
+ax[1].plot(model.history.history['accuracy'],color='b',label='Training Accuracy')
+ax[1].plot(model.history.history['val_accuracy'],color='r',label='Test Accuracy')
+ax[1].legend()
+
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.savefig('./graphs/AlexNet_Transfer_Learning.png')
+model.save('./models/AlexNet_Transfer_Learning')
+'''
+
+torch.save(AlexNet_model.state_dict(), "./models/AlexNet_TransferLearning.pt")
+#
+#  print('Accuracy Score = ',np.max(history.history['val_accuracy']))
+
+
