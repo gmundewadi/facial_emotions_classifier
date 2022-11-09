@@ -71,9 +71,17 @@ nepochs = 20 #TODO: run for 20 epochs
 epochs = list(range(1, nepochs+1))
 train_loss_trend, train_acc_trend, test_loss_trend, test_acc_trend = [], [], [], []
 
-for i, data in enumerate(trainloader, 0):
+for epoch in range(nepochs): 
+    
+    running_loss = 0.0
+    running_accuracy = 0.0
+
+    for i, data in enumerate(trainloader, 0):
         # load input and labels into gpu
         inputs, labels = data[0], data[1]
+        bs, ncrops, c, h, w = inputs.size()
+        inputs = inputs.view(-1, c, h, w) # fuse batch size and ncrops
+
         inputs = inputs.to(mps_device)
         labels = labels.to(mps_device)
 
@@ -82,11 +90,13 @@ for i, data in enumerate(trainloader, 0):
 
         # make predictions & calc accuracy
         outputs = AlexNet_model(inputs)
-        _, preds = torch.max(outputs, 1)
-        running_accuracy += float(torch.sum(preds == labels)) / batchSize # % accuracy for current batch
+        outputs_avg = outputs.view(bs, ncrops, -1).mean(1) # avg over crops
+
+        _, preds = torch.max(outputs_avg, 1)
+        running_accuracy += float(torch.sum(preds == labels)) / batchSize 
 
         # forward + backward + optimize
-        loss = criterion(outputs, labels)
+        loss = criterion(outputs_avg, labels)
         loss.backward()
         optimizer.step()
 
