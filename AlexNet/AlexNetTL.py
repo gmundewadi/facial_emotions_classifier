@@ -23,17 +23,22 @@ if not torch.backends.mps.is_available():
         print("MPS not available because the current MacOS version is not 12.3+ "
               "and/or you do not have an MPS-enabled device on this machine.")
             
-#TODO: double-check with paper about transforms
-transform = transforms.Compose([
+train_transform = transforms.Compose([
+    transforms.Resize(256),
+    transforms.RandomHorizontalFlip(p = .5),
+    transforms.FiveCrop(224),
+    transforms.Lambda(lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
+])
+
+test_transform = transforms.Compose([
     transforms.Resize(256),
     transforms.CenterCrop(224),
     transforms.ToTensor(),
 ])
 
 # Load dataset and perform transformations
-train_dataset = datasets.ImageFolder('./dataset/train', transform = transform)
-test_dataset = datasets.ImageFolder('./dataset/test', transform = transform)
-
+train_dataset = datasets.ImageFolder('../dataset/train', transform = train_transform)
+test_dataset = datasets.ImageFolder('../dataset/test', transform = test_transform)
 
 # Dataloader iteratble returns batches of images and corresponding labels
 batchSize = 256
@@ -42,8 +47,6 @@ testloader = torch.utils.data.DataLoader(test_dataset, batch_size=batchSize, shu
 
 train_dataset_size = len(trainloader)
 test_dataset_size = len(testloader)
-
-#TODO: Data augementation steps goes here
 
 mps_device = torch.device('mps')
 
@@ -63,7 +66,7 @@ optimizer = optim.SGD(AlexNet_model.parameters(), lr=0.001, momentum=0.9)
 # learning rate decreases step-wise by a factor of .1 ~every 10K iterations
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
-nepochs = 2 #TODO: run for 20 epochs
+nepochs = 20 #TODO: run for 20 epochs
 
 epochs = list(range(1, nepochs+1))
 train_loss_trend, train_acc_trend, test_loss_trend, test_acc_trend = [], [], [], []
@@ -76,6 +79,9 @@ for epoch in range(nepochs):
     for i, data in enumerate(trainloader, 0):
         # load input and labels into gpu
         inputs, labels = data[0], data[1]
+        bs, ncrops, c, h, w = inputs.size()
+        inputs = inputs.view(-1, c, h, w) # fuse batch size and ncrops
+
         inputs = inputs.to(mps_device)
         labels = labels.to(mps_device)
 
@@ -84,11 +90,13 @@ for epoch in range(nepochs):
 
         # make predictions & calc accuracy
         outputs = AlexNet_model(inputs)
-        _, preds = torch.max(outputs, 1)
-        running_accuracy += float(torch.sum(preds == labels)) / batchSize # % accuracy for current batch
+        outputs_avg = outputs.view(bs, ncrops, -1).mean(1) # avg over crops
+
+        _, preds = torch.max(outputs_avg, 1)
+        running_accuracy += float(torch.sum(preds == labels)) / batchSize 
 
         # forward + backward + optimize
-        loss = criterion(outputs, labels)
+        loss = criterion(outputs_avg, labels)
         loss.backward()
         optimizer.step()
 
@@ -142,7 +150,7 @@ ax[1].plot(epochs,test_acc_trend,color='r',label='Test Accuracy')
 ax[1].set(xlabel='Epoch', ylabel = 'Accuracy')
 ax[1].legend()
 
-plt.savefig('../graphs/AlexNet_TL.png')
-torch.save(AlexNet_model, '../models/AlexNet_TL')
+plt.savefig('../graphs/AlexNet_TL_dataAugment.png')
+torch.save(AlexNet_model, '../models/AlexNet_TL_dataAugment')
 
 print('Accuracy Score = ', np.max(test_acc_trend))
