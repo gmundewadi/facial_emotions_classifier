@@ -5,6 +5,8 @@ Utilizes Metal Performance Shaders for quick training/validation on Apple Silico
 Author: Gautam Mundewadi
 """
 
+import random
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -44,11 +46,11 @@ test_dataset = datasets.ImageFolder('../dataset/test', transform = test_transfor
 
 # Dataloader iteratble returns batches of images and corresponding labels
 batchSize = 256
-trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=batchSize, shuffle=True)
 testloader = torch.utils.data.DataLoader(test_dataset, batch_size=batchSize, shuffle=True)
 
-train_dataset_size = len(trainloader)
-test_dataset_size = len(testloader)
+num_training_points = len(train_dataset) 
+test_dataset_size = len(testloader) # number of test datapoints per batch
+
 
 mps_device = torch.device('mps')
 
@@ -68,18 +70,22 @@ optimizer = optim.SGD(VGG16_model.parameters(), lr=0.001, momentum=0.9)
 # learning rate decreases step-wise by a factor of .1 ~every 10K iterations
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
-nepochs = 20 #TODO: run for 20 epochs
+niters = 200 # niters 
 
-epochs = list(range(1, nepochs+1))
+iters = list(range(1, niters+1))
 train_loss_trend, train_acc_trend, test_loss_trend, test_acc_trend = [], [], [], []
 
-for epoch in range(nepochs): 
+for iter in range(niters): 
     
     running_loss = 0.0
     running_accuracy = 0.0
 
-    # TODO: implement this stochastically
-    for i, data in enumerate(trainloader, 0):
+    subset = torch.utils.data.Subset(train_dataset, [random.randint(0, num_training_points-1)]) # select 1 datapoint for SGD
+    trainloader_stochastic = torch.utils.data.DataLoader(subset, batch_size=1, num_workers=0, shuffle=False)
+    
+    print(trainloader_stochastic)
+
+    for i, data in enumerate(trainloader_stochastic, 0):
         # load input and labels into gpu
         inputs, labels = data[0], data[1]
 
@@ -100,13 +106,12 @@ for epoch in range(nepochs):
         optimizer.step()
 
         running_loss += loss.item()
-        print(f'{i} / {len(trainloader)}')
 
-    train_loss_this_epoch = running_loss / train_dataset_size
-    train_acc_this_epoch = running_accuracy / train_dataset_size
+    train_loss_this_iter = running_loss
+    train_acc_this_iter = running_accuracy 
 
-    train_loss_trend.append(train_loss_this_epoch)
-    train_acc_trend.append(train_acc_this_epoch)
+    train_loss_trend.append(train_loss_this_iter)
+    train_acc_trend.append(train_acc_this_iter)
 
     running_loss = 0.0
     running_accuracy = 0.0
@@ -125,29 +130,30 @@ for epoch in range(nepochs):
         # compute running loss
         loss = criterion(outputs, labels)
         running_loss += loss.item()
+        print(f'Evaluation step: {i} / {test_dataset_size}')
 
-    test_loss_this_epoch = running_loss / test_dataset_size
-    test_acc_this_epoch = running_accuracy / test_dataset_size
+    test_loss_this_iter = running_loss / test_dataset_size
+    test_acc_this_iter = running_accuracy / test_dataset_size
     
-    test_loss_trend.append(test_loss_this_epoch)
-    test_acc_trend.append(test_acc_this_epoch)
+    test_loss_trend.append(test_loss_this_iter)
+    test_acc_trend.append(test_acc_this_iter)
 
-    print(f'Epoch {epoch + 1} Training Loss: {train_loss_this_epoch:.4f} Training Acc: {train_acc_this_epoch:.4f} Test Loss: {test_loss_this_epoch:.4f} Test Acc: {test_acc_this_epoch:.4f}')\
+    print(f'Iteration {iter + 1} Training Loss: {train_loss_this_iter:.4f} Training Acc: {train_acc_this_iter:.4f} Test Loss: {test_loss_this_iter:.4f} Test Acc: {test_acc_this_iter:.4f}')\
     
 
 
 f,ax=plt.subplots(2,1,figsize=(10,10)) 
 
 #Assigning the first subplot to graph training loss and test loss
-ax[0].plot(epochs, train_loss_trend,color='b',label='Training Loss')
-ax[0].plot(epochs, test_loss_trend,color='r',label='Test Loss')
-ax[0].set(xlabel='Epoch', ylabel = 'Loss')
+ax[0].plot(iters, train_loss_trend,color='b',label='Training Loss')
+ax[0].plot(iters, test_loss_trend,color='r',label='Test Loss')
+ax[0].set(xlabel='Iteration', ylabel = 'Loss')
 ax[0].legend()
 
 #Plotting the training accuracy and test accuracy
-ax[1].plot(epochs,train_acc_trend,color='b',label='Training Accuracy')
-ax[1].plot(epochs,test_acc_trend,color='r',label='Test Accuracy')
-ax[1].set(xlabel='Epoch', ylabel = 'Accuracy')
+ax[1].plot(iters,train_acc_trend,color='b',label='Training Accuracy')
+ax[1].plot(iters,test_acc_trend,color='r',label='Test Accuracy')
+ax[1].set(xlabel='Iteration', ylabel = 'Accuracy')
 ax[1].legend()
 
 plt.savefig('../graphs/VGG16_TL.png')

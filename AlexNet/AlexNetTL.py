@@ -66,7 +66,7 @@ optimizer = optim.SGD(AlexNet_model.parameters(), lr=0.001, momentum=0.9)
 # learning rate decreases step-wise by a factor of .1 ~every 10K iterations
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
-nepochs = 20 #TODO: run for 20 epochs
+nepochs = 20
 
 epochs = list(range(1, nepochs+1))
 train_loss_trend, train_acc_trend, test_loss_trend, test_acc_trend = [], [], [], []
@@ -150,7 +150,7 @@ ax[1].plot(epochs,test_acc_trend,color='r',label='Test Accuracy')
 ax[1].set(xlabel='Epoch', ylabel = 'Accuracy')
 ax[1].legend()
 
-plt.savefig('../graphs/AlexNet_TL_dataAugment.png')
-torch.save(AlexNet_model, '../models/AlexNet_TL_dataAugment')
+plt.savefig('../graphs/AlexNet_TL.png')
+torch.save(AlexNet_model, '../models/AlexNet_TL')
 
 print('Accuracy Score = ', np.max(test_acc_trend))
