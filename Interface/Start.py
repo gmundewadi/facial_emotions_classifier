@@ -34,7 +34,7 @@ if not webcam.isOpened():
     exit()
 
 mps_device = torch.device('mps')
-model = torch.load('../models/AlexNet_Scratch_50epochs')
+model = torch.load('../models/MobileNetV2_TL')
 model.eval()
 model = model.to(mps_device)
 
@@ -85,7 +85,8 @@ while webcam.isOpened():
         barChartFig = plt.bar(emotion_values,probabilites.cpu().detach().numpy()[0], color = colors, width=.4)
         plt.xlabel('Emotion')
         plt.ylabel('Probability')
-        
+        plt.ylim(0,1)
+
         # display matplotlib fig using opencv
         fig.canvas.draw()
 
@@ -106,7 +107,7 @@ while webcam.isOpened():
     # display frames and bar chart
     cv2.imshow("Real-time emotions detection", frame)
     cv2.imshow("Probabilites", barChartImg)
-
+    cv2.setWindowProperty("Real-time emotions detection", cv2.WND_PROP_FULLSCREEN, cv2.WND_PROP_FULLSCREEN)
 
     # press "Q" to stop
     if cv2.waitKey(1) & 0xFF == ord('q'):
