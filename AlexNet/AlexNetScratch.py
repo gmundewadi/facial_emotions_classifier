@@ -53,6 +53,9 @@ mps_device = torch.device('mps')
 AlexNet_model = torch.hub.load('pytorch/vision:v0.6.0', 'alexnet') # No pretrained weights
 AlexNet_model.eval()
 
+# prevent overfitting
+# AlexNet_model.classifier[4] = nn.Linear(4096,1024)
+
 #Updating the third and the last classifier that is the output layer of the network. Make sure to have 4 output nodes if we are going to get 4 class labels through our model.
 AlexNet_model.classifier[6] = nn.Linear(4096,4)
 AlexNet_model.to(mps_device)
@@ -66,7 +69,7 @@ optimizer = optim.SGD(AlexNet_model.parameters(), lr=0.001, momentum=0.9)
 # learning rate decreases step-wise by a factor of .1 ~every 10K iterations
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
-nepochs = 1 #TODO: run for 20 epochs
+nepochs = 100
 
 epochs = list(range(1, nepochs+1))
 train_loss_trend, train_acc_trend, test_loss_trend, test_acc_trend = [], [], [], []
@@ -149,7 +152,7 @@ ax[1].plot(epochs,test_acc_trend,color='r',label='Test Accuracy')
 ax[1].set(xlabel='Epoch', ylabel = 'Accuracy')
 ax[1].legend()
 
-plt.savefig('../graphs/AlexNet_Scratch_dataAugment.png')
-torch.save(AlexNet_model, '../models/AlexNet_Scratch_dataAugment')
+plt.savefig('../graphs/AlexNet_Scratch_50epochs.png')
+torch.save(AlexNet_model, '../models/AlexNet_Scratch_50pochs')
 
 print('Accuracy Score = ', np.max(test_acc_trend))

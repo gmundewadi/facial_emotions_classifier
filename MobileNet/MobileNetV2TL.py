@@ -1,6 +1,6 @@
 """
-AlexNetTL.py
-Transfer learning using AlexNet to predict facial emotions. 
+MobileNetV2TL.py
+Transfer learning using MobileNetV2 to predict facial emotions. 
 Utilizes Metal Performance Shaders for quick training/validation on Apple Silicon
 Author: Gautam Mundewadi
 """
@@ -11,8 +11,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
-from torchvision import datasets, transforms
-from torchvision.models import AlexNet_Weights
+from torchvision import datasets, transforms, models
+from torchvision.models import MobileNet_V2_Weights
 
 # Check that MPS is available
 if not torch.backends.mps.is_available():
@@ -23,25 +23,18 @@ if not torch.backends.mps.is_available():
         print("MPS not available because the current MacOS version is not 12.3+ "
               "and/or you do not have an MPS-enabled device on this machine.")
             
-train_transform = transforms.Compose([
-    transforms.Resize(256),
-    transforms.RandomHorizontalFlip(p = .5),
-    transforms.FiveCrop(224),
-    transforms.Lambda(lambda crops: torch.stack([transforms.ToTensor()(crop) for crop in crops])),
-])
-
-test_transform = transforms.Compose([
-    transforms.Resize(256),
+transform = transforms.Compose([
     transforms.CenterCrop(224),
     transforms.ToTensor(),
+    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
 ])
 
-# Load dataset and perform transformations
-train_dataset = datasets.ImageFolder('../dataset/train', transform = train_transform)
-test_dataset = datasets.ImageFolder('../dataset/test', transform = test_transform)
+# Load dataset and perform transformations (same transforms for train & test)
+train_dataset = datasets.ImageFolder('../dataset/train', transform = transform)
+test_dataset = datasets.ImageFolder('../dataset/test', transform = transform)
 
 # Dataloader iteratble returns batches of images and corresponding labels
-batchSize = 256
+batchSize = 32
 trainloader = torch.utils.data.DataLoader(train_dataset, batch_size=batchSize, shuffle=True)
 testloader = torch.utils.data.DataLoader(test_dataset, batch_size=batchSize, shuffle=True)
 
@@ -50,26 +43,25 @@ test_dataset_size = len(testloader)
 
 mps_device = torch.device('mps')
 
-AlexNet_model = torch.hub.load('pytorch/vision:v0.6.0', 'alexnet', weights = AlexNet_Weights.DEFAULT)
-AlexNet_model.eval()
+mobileNetV2_model = models.mobilenet_v2(weights = MobileNet_V2_Weights.DEFAULT)
+mobileNetV2_model.eval()
 
-# prevent overfitting
-AlexNet_model.classifier[4] = nn.Linear(4096,1024)
+#Updating the third and the last classifier that is the output layer of the network. Make sure to have
+#  4 output nodes if we are going to get 4 class labels through our model.
+mobileNetV2_model.classifier[1] = nn.Linear(mobileNetV2_model.last_channel, 4)
 
-#Updating the third and the last classifier that is the output layer of the network. Make sure to have 4 output nodes if we are going to get 4 class labels through our model.
-AlexNet_model.classifier[6] = nn.Linear(4096,4)
-AlexNet_model.to(mps_device)
+mobileNetV2_model.to(mps_device)
 
 # Loss
 criterion = nn.CrossEntropyLoss()
 
 # Optimizer(SGD)
-optimizer = optim.SGD(AlexNet_model.parameters(), lr=0.001, momentum=0.9)
+optimizer = optim.SGD(mobileNetV2_model.parameters(), lr=0.001, momentum=0.9)
 
 # learning rate decreases step-wise by a factor of .1 ~every 10K iterations
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
-nepochs = 20
+nepochs = 10
 
 epochs = list(range(1, nepochs+1))
 train_loss_trend, train_acc_trend, test_loss_trend, test_acc_trend = [], [], [], []
@@ -82,9 +74,6 @@ for epoch in range(nepochs):
     for i, data in enumerate(trainloader, 0):
         # load input and labels into gpu
         inputs, labels = data[0], data[1]
-        bs, ncrops, c, h, w = inputs.size()
-        inputs = inputs.view(-1, c, h, w) # fuse batch size and ncrops
-
         inputs = inputs.to(mps_device)
         labels = labels.to(mps_device)
 
@@ -92,14 +81,12 @@ for epoch in range(nepochs):
         optimizer.zero_grad()
 
         # make predictions & calc accuracy
-        outputs = AlexNet_model(inputs)
-        outputs_avg = outputs.view(bs, ncrops, -1).mean(1) # avg over crops
-
-        _, preds = torch.max(outputs_avg, 1)
+        outputs = mobileNetV2_model(inputs)
+        _, preds = torch.max(outputs, 1)
         running_accuracy += float(torch.sum(preds == labels)) / batchSize 
 
         # forward + backward + optimize
-        loss = criterion(outputs_avg, labels)
+        loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
 
@@ -121,7 +108,7 @@ for epoch in range(nepochs):
         labels = labels.to(mps_device)
 
         # make predictions & calc accuracy 
-        outputs = AlexNet_model(inputs)
+        outputs = mobileNetV2_model(inputs)
         _, preds = torch.max(outputs, 1)
         running_accuracy += float(torch.sum(preds == labels)) / batchSize
 
@@ -138,7 +125,6 @@ for epoch in range(nepochs):
     print(f'Epoch {epoch + 1} Training Loss: {train_loss_this_epoch:.4f} Training Acc: {train_acc_this_epoch:.4f} Test Loss: {test_loss_this_epoch:.4f} Test Acc: {test_acc_this_epoch:.4f}')\
     
 
-
 f,ax=plt.subplots(2,1,figsize=(10,10)) 
 
 #Assigning the first subplot to graph training loss and test loss
@@ -153,7 +139,7 @@ ax[1].plot(epochs,test_acc_trend,color='r',label='Test Accuracy')
 ax[1].set(xlabel='Epoch', ylabel = 'Accuracy')
 ax[1].legend()
 
-plt.savefig('../graphs/AlexNet_TL.png')
-torch.save(AlexNet_model, '../models/AlexNet_TL')
+plt.savefig('../graphs/MobileNetV2_TL_1126.png')
+torch.save(mobileNetV2_model, '../models/MobileNetV2_1126')
 
 print('Accuracy Score = ', np.max(test_acc_trend))
