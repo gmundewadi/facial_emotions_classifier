@@ -10,6 +10,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+from facenet_pytorch import InceptionResnetV1
 
 
 # Check that MPS is available
@@ -34,7 +35,17 @@ if not webcam.isOpened():
     exit()
 
 mps_device = torch.device('mps')
-model = torch.load('../models/MobileNetV2_TL')
+
+
+model = InceptionResnetV1(
+    classify=True,
+    pretrained='vggface2',
+    num_classes=4
+) 
+
+model = torch.load('../models/MobileNetV2_1126')
+
+
 model.eval()
 model = model.to(mps_device)
 
@@ -62,13 +73,16 @@ while webcam.isOpened():
 
         l = max(endX - startX, endY - startY)
         leftAdjust = 40
-        cropped_face = frame[startY:startY + l,startX - leftAdjust : startX + l-leftAdjust]
+        inc = 125
+        cropped_face = frame[startY:startY + l , startX :startX + l]
         
         # crop and resize image of face
-        img = cv2.resize(cropped_face, (224, 224), interpolation=cv2.INTER_AREA)
+        height,width = 224,224
+        img = cv2.resize(cropped_face, (height, width), interpolation=cv2.INTER_AREA)
+        # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # make prediction
-        input = torch.tensor(img).view(-1, 3, 224, 224).float()
+        input = torch.tensor(img).view(-1, 3, height, width).float()
         input = input.to(mps_device)
 
         output = model(input)
@@ -94,8 +108,7 @@ while webcam.isOpened():
         barChartImg = cv2.cvtColor(np.asarray(fig.canvas.buffer_rgba()), cv2.COLOR_RGBA2BGR)
         # cv2.resizeWindow(barChartImg, (int(width*.2), int(height*.2)))
         
-    
-        cv2.rectangle(frame, (startX,startY), (endX,endY), (0,255,0), 2)
+        cv2.rectangle(frame, (startX,startY), (endX, endY), (0,255,0), 2)
         text = f'{emotions[preds.item()]}'
 
         Y = startY - 10 if startY - 10 > 10 else startY + 10

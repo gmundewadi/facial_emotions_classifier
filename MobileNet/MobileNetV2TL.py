@@ -24,7 +24,6 @@ if not torch.backends.mps.is_available():
               "and/or you do not have an MPS-enabled device on this machine.")
             
 transform = transforms.Compose([
-    transforms.Resize(256),
     transforms.CenterCrop(224),
     transforms.ToTensor(),
     transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
@@ -47,7 +46,8 @@ mps_device = torch.device('mps')
 mobileNetV2_model = models.mobilenet_v2(weights = MobileNet_V2_Weights.DEFAULT)
 mobileNetV2_model.eval()
 
-#Updating the third and the last classifier that is the output layer of the network. Make sure to have 4 output nodes if we are going to get 4 class labels through our model.
+#Updating the third and the last classifier that is the output layer of the network. Make sure to have
+#  4 output nodes if we are going to get 4 class labels through our model.
 mobileNetV2_model.classifier[1] = nn.Linear(mobileNetV2_model.last_channel, 4)
 
 mobileNetV2_model.to(mps_device)
@@ -61,7 +61,7 @@ optimizer = optim.SGD(mobileNetV2_model.parameters(), lr=0.001, momentum=0.9)
 # learning rate decreases step-wise by a factor of .1 ~every 10K iterations
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
 
-nepochs = 20
+nepochs = 10
 
 epochs = list(range(1, nepochs+1))
 train_loss_trend, train_acc_trend, test_loss_trend, test_acc_trend = [], [], [], []
@@ -139,7 +139,7 @@ ax[1].plot(epochs,test_acc_trend,color='r',label='Test Accuracy')
 ax[1].set(xlabel='Epoch', ylabel = 'Accuracy')
 ax[1].legend()
 
-plt.savefig('../graphs/MobileNetV2_TL.png')
-torch.save(mobileNetV2_model, '../models/MobileNetV2')
+plt.savefig('../graphs/MobileNetV2_TL_1126.png')
+torch.save(mobileNetV2_model, '../models/MobileNetV2_1126')
 
 print('Accuracy Score = ', np.max(test_acc_trend))
